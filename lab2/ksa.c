@@ -179,12 +179,23 @@ char* RC4_RS(char*key, int n, int t)
 
 int main(int argc,char* argv[])
 {
-
+  if(argc<5)
+  {
+    printf("not enough arguments");
+    return 0;
+  }
   int n = atoi(argv[2]);
   int t = atoi(argv[3]);
-
+  int test = atoi(argv[4]);
   //char* s = RC4(argv[1],n,t);
   char* k = RC4_RS(argv[1],n,t);
+  switch(test)
+  {
+    case 0: RC4(argv[1],n,t);
+            break;
+    case 1: RC4_RS(argv[1],n,t);
+    default: printf("no valid option selected\n");
+  }
 
   return 0;
 }
