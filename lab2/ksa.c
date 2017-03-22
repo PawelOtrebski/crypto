@@ -1,201 +1,188 @@
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
-/*
-  Implementation of the RC4 encryption scheme
-*/
 
 /*
-  Return the size of the string in bytes
+	Implementacja RC4
 */
 
+struct STATE{
+	int i;
+	int j;
+	long* s;
+}typedef state;
 
+struct KEY{
+	int l;
+	char* k;
+}typedef key;
 
-int sizeInBytes(char* str)
+struct RC4{
+	state* s;
+	key* k;
+	int t;
+	int n;
+}typedef rc4;
+
+void swap(long *a,long *b)
 {
-  return sizeof(char)*strlen(str);
-}
-/*
-  return the size of a given string in bits
-*/
-int sizeInBits(char* str)
-{
-  return sizeInBytes(str)*8;
-}
-
-/*
-  swap two elements pointers
-*/
-
-void swap(int* a,int* b)
-{
-  int t = *a;
-  *a = *b;
-  *b = t;
+	long t = *a;
+	*a = *b;
+	*b = t;
 }
 
 /*
-  allocate memory
+	Allocate memory for the state of the permutation that will be used 
+	for generting random numbers
 */
-
-int* allocate(int n)
+state* allocateMemoryForState(int n)
 {
-  return (int*)malloc(sizeof(int)*n);
+	
+	state* s = NULL;
+	
+	s = (state*)malloc(sizeof(state));
+	s->s = (long*)malloc(sizeof(long)*n);
+	s->i = 0;
+	s->j = 0;
+	return s;
+	
+}
+
+key* allocateMemoryForKey(char* s)
+{
+	int len = 0;
+	int i;
+	for(i=0;s[i]!='\0';i++)
+	{
+		len++;
+	}
+	
+	key* k = (key*)malloc(sizeof(key));
+	k->l = len;
+	k->k = (char*)malloc(sizeof(char)*len);
+	for(i=0;i<k->l;i++)
+	{
+		k->k[i] = s[i];
+	}
+	
+	return k;
+}
+
+rc4* allocateMemoryForRC4(int n, int t, char* k)
+{
+	rc4* r = (rc4*)malloc(sizeof(rc4));
+	r->s = allocateMemoryForState(n);
+	r->k = allocateMemoryForKey(k);
+	r->n = n;
+	r->t = t;
+	return r;
+}
+
+key* freeKeyMemory(key* k)
+{
+	if(k==NULL)
+		return NULL;
+		
+	free(k->k);
+	k->k = NULL;
+	free(k);
+	return NULL;
+}
+/*
+	free memory allocated for state, to clean up program
+*/
+state* freeStateMemory(state* s)
+{
+	if(s==NULL)
+		return NULL;
+		
+	free(s->s);
+	free(s);
+	s = NULL;
+	
+	return NULL;
+}
+
+rc4* freeRC4Memory(rc4* r)
+{
+	if(r==NULL)
+		return NULL;
+		
+	r->s = freeStateMemory(r->s);
+	r->k = freeKeyMemory(r->k);
+	free(r);
+	r=NULL;
+	return r;
 }
 
 /*
-  free memory
+	initialize the state of the permutation
 */
-int* freeArray(int* p){
-  if(p!=NULL)
-  {
-    free(p);
-    p=NULL;
-  }
-  return p;
-}
-
-
-int* KSA(char* key, int n, int t)
+state* initializeState(state* s, int n)
 {
-  int* s = (int*)malloc(sizeof(int)*n);
-  int i,j,l;
-
-  for(i=0;i<n;i++)
-  {
-    s[i] = i;
-  }
-
-  j=0;
-  l = sizeInBytes(key);
-  int temp;
-  for(i=0;i<t;i++)
-  {
-    temp = key[i%l];
-    j = (j+s[i]+temp)%n;
-    swap(&s[i%n],&s[j%n]);
-  }
-  return s;
+	int i;
+	
+	for(i=0;i<n;i++)
+	{
+		s->s[i] = i;
+	}
+	
+	return s;
+	
 }
-
-int* KSA_RS(char* key,int n, int t)
+/*
+	original KSA
+*/
+void KSA(rc4** r)
 {
-
-
-  int* s = allocate(n);
-  int* top = NULL;
-  int* bottom = NULL;
-  int* newS = NULL;
-  int i,j,r,l,temp,index,k,v,tin,bin,lt;
-
-  for(i=0;i<n;i++)
-  {
-    s[i] = i;
-  }
-
-  lt=sizeInBytes(key);
-  l = lt*8;
-  top = allocate(n);
-  bottom = allocate(n);
-  newS = allocate(n);
-  for(r=0;r<t;r++)
-  {
-
-    tin = 0;
-    bin = 0;
-
-    for(i=0;i<n;i++)
-    {
-      index = (r*n+i)%l;
-      v = key[index/8];
-      k = (index%8);
-      k = v&(1<<k);
-
-      if(k==0)
-      {
-          top[tin++] = i;
-      }else
-      {
-          bottom[bin++] = i;
-      }
-
-    }
-
-    for(j=0;j<tin;j++)
-    {
-      newS[j] = s[top[j]];
-    }
-
-    for(j=0;j<bin;j++)
-    {
-      newS[j+tin] = s[bottom[j]];
-    }
-
-
-    for(j=0;j<n;j++)
-    {
-      s[j] = newS[j];
-    }
-
-  }
-
-  top = freeArray(top);
-  bottom = freeArray(bottom);
-  newS = freeArray(newS);
-  return s;
+	int j = 0;
+	int i;
+	int t = (*r)->t;
+	int n = (*r)->n;
+	int l = (*r)->k->l;
+	state* s = (*r)->s;
+	for(i=0;i<t;i++)
+	{
+		j = (j+s->s[i] + (*r)->k->k[i%l] )%n;
+		swap(&s->s[i%n],&s->s[j%n]);
+	}
+	(*r)->s = s;
+	for(i=0;i<(*r)->n;i++)
+	{
+		printf("%ld\n",(*r)->s->s[i]);
+	}
+	
 }
 
-void PRNGA(int* s, int n)
+long PRGA(state** s, int n)
 {
-  int i=0;
-  int j=0;
-  int looper = 0;
-  int k;
-  while(++looper!=10000)
-    {
-      i = (i+1)%n;
-      j = (j+s[i])%n;
-      swap(&s[i],&s[j]);
-      k = s[(s[i]+s[j])%n];
-      printf("%d\n",k);
-    }
+	int* i = &(*s)->i;
+	int* j = &(*s)->j;
+	
+	*i = (*i+1)%n;
+	*j = (*j+(*s)->s[*i])%n;
+	swap(&(*s)->s[*i],&(*s)->s[*j]);
+	return (*s)->s[((*s)->s[*i]+(*s)->s[*j])%n]&0xFF;
 }
 
-char* RC4(char*key,int n, int t)
+rc4* setUp(int n, int t, char* k)
 {
-  int* s = KSA(key,n,t);
-  PRNGA(s,n);
-  s = freeArray(s);
-  return NULL;
+	rc4* r = allocateMemoryForRC4(n,t,k);
+	r->s = initializeState(r->s,r->n);
+	KSA(&r);
+	return r;
 }
 
-char* RC4_RS(char*key, int n, int t)
+char getByte(rc4** r)
 {
-  int* s = KSA(key,n,t);
-  PRNGA(s,n);
-  s = freeArray(s);
-  return NULL;
+	long c = PRGA(&(*r)->s,(*r)->n);
+	return c;
 }
+
 
 int main(int argc,char* argv[])
 {
-  if(argc<5)
-  {
-    printf("not enough arguments");
-    return 0;
-  }
-  int n = atoi(argv[2]);
-  int t = atoi(argv[3]);
-  int test = atoi(argv[4]);
-  //char* s = RC4(argv[1],n,t);
-  char* k = RC4_RS(argv[1],n,t);
-  switch(test)
-  {
-    case 0: RC4(argv[1],n,t);
-            break;
-    case 1: RC4_RS(argv[1],n,t);
-    default: printf("no valid option selected\n");
-  }
-
-  return 0;
+	rc4* r = setUp(16,16,"john");
+	r = freeRC4Memory(r);
+	return 0;
 }
