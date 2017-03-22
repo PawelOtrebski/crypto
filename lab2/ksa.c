@@ -24,6 +24,8 @@ struct RC4{
 	int n;
 }typedef rc4;
 
+FILE* f;
+
 void swap(long *a,long *b)
 {
 	long t = *a;
@@ -179,10 +181,38 @@ char getByte(rc4** r)
 	return c;
 }
 
+FILE* openFile(FILE *fp, char* filename)
+{
+	fp = fopen(filename,"wb");
+	return fp;
+}
+
+void closeFile(FILE *fp)
+{
+	fclose(fp);
+}
+
+void writeToFile(rc4** r, FILE *fp)
+{
+	int byteCount = 0;
+	char c;
+	while(byteCount<16000000)
+	{
+		c = getByte(r);
+		putc(c,fp);
+		byteCount++;
+	}
+}
 
 int main(int argc,char* argv[])
 {
-	rc4* r = setUp(16,16,"john");
+	int n = atoi(argv[1]);
+	int t = atoi(argv[2]);
+	rc4* r = setUp(n,t,argv[3]);
+	f = openFile(f,"test.txt");
+	writeToFile(&r,f);
+	closeFile(f);	
+	
 	r = freeRC4Memory(r);
 	return 0;
 }
