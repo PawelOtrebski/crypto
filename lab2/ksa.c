@@ -126,12 +126,15 @@ state* initializeState(state* s, int n)
 	
 	for(i=0;i<n;i++)
 	{
-		s->s[i] = i;
+		s->s[i] = (long)i;
 	}
 	
 	return s;
 	
 }
+
+
+
 /*
 	original KSA
 */
@@ -155,27 +158,97 @@ void KSA(rc4** r)
 	}
 	
 }
+/*
+	RS version of KS 
+*/
+void KSA_RS(rc4** r)
+{
+printf("here");
+	int rc,i,ki,bi,bit,tcount,bcount;
+	int t = (*r)->t;
+	int n = (*r)->n;
+	//bit size of key
+	int lbits = (*r)->k->l*8;
+	int l = (*r)->k->l;
+	state* s = (*r)->s;
+	long top[n];
+	long bottom[n];
+	long newS[n];
+	char* key = (*r)->k->k;
+	for(rc=0; rc<t;rc++)
+	{
+		
+		tcount = 0;
+		bcount = 0;
+		for(i=0;i<n;i++)
+		{	
+			ki  = (rc*n+i)%lbits;
+			bi = ki/l;
+			bit = 1<<(bi%8);
+			bi = key[bi]&bit;
+			
+			if(bi==0){
+				top[tcount++] = i;
+			}else
+			{
+				bottom[bcount++] = i;
+			}
+			
+		}
+		
+		printf("top\n");
+		for(i=0;i<tcount;i++)
+		{
+			
+			newS[i] = s->s[top[i]];
+			//printf("%ld ", s->s[top[i]]);
+		}
+		printf("\nbottom\n");
+		for(i=0;i<bcount;i++){
+			
+			newS[i+tcount] = s->s[bottom[i]];
+			//printf("%ld ", s->s[bottom[i]]);
+		}
+		
+		for(i=0;i<n;i++)
+		{
+			s->s[i] = newS[i];
+		}
+	}
+	
+}
 
 long PRGA(state** s, int n)
 {
 	int* i = &(*s)->i;
 	int* j = &(*s)->j;
-	
+	//printf("1:%d,%d\n",*i,*j);
 	*i = (*i+1)%n;
+	//printf("2:%d\n",*i);
 	*j = (*j+(*s)->s[*i])%n;
+	
 	swap(&(*s)->s[*i],&(*s)->s[*j]);
-	return (*s)->s[((*s)->s[*i]+(*s)->s[*j])%n]&0xFF;
+	//printf("3:%ld\n",(*s)->s[((*s)->s[*i]+(*s)->s[*j])%n]);
+	return (*s)->s[((*s)->s[*i]+(*s)->s[*j])%n];
 }
 
-rc4* setUp(int n, int t, char* k)
+rc4* setUp(int n, int t, char* k, int type)
 {
+	printf("setup\n");
 	rc4* r = allocateMemoryForRC4(n,t,k);
 	r->s = initializeState(r->s,r->n);
-	KSA(&r);
+	if(type==0)
+	{
+		KSA(&r);
+	}else if(type==1)
+	{
+		printf("KSA_RS\n");
+		KSA_RS(&r);
+	}
 	return r;
 }
 
-char getByte(rc4** r)
+long getByte(rc4** r)
 {
 	long c = PRGA(&(*r)->s,(*r)->n);
 	return c;
@@ -195,10 +268,11 @@ void closeFile(FILE *fp)
 void writeToFile(rc4** r, FILE *fp)
 {
 	int byteCount = 0;
-	char c;
+	long c;
 	while(byteCount<16000000)
 	{
 		c = getByte(r);
+		printf("%d",c);
 		putc(c,fp);
 		byteCount++;
 	}
@@ -208,7 +282,8 @@ int main(int argc,char* argv[])
 {
 	int n = atoi(argv[1]);
 	int t = atoi(argv[2]);
-	rc4* r = setUp(n,t,argv[3]);
+	int type = atoi(argv[4]);
+	rc4* r = setUp(n,t,argv[3],type);
 	f = openFile(f,"test.txt");
 	writeToFile(&r,f);
 	closeFile(f);	
